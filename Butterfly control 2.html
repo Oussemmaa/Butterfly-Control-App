@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Butterfly control</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f3f6fb;--card:#fff;--ink:#12203a;--mute:#5d6b86;--line:#d9e0ee;--acc:#2858e8;--acc-ink:#fff;--ok:#1f9d6b;--warn:#e08a00;--bad:#d23c3c;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b1220;--card:#141d30;--ink:#e8eefc;--mute:#93a1c0;--line:#243251;--acc:#6f95ff;--acc-ink:#0b1220;--ok:#3ccf95;--warn:#ffb020;--bad:#ff6b6b}}
+:root[data-theme="dark"]{--bg:#0b1220;--card:#141d30;--ink:#e8eefc;--mute:#93a1c0;--line:#243251;--acc:#6f95ff;--acc-ink:#0b1220;--ok:#3ccf95;--warn:#ffb020;--bad:#ff6b6b}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.4}
+main{max-width:480px;margin:0 auto;padding:16px 16px 40px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:8px 0 16px}
+h1{font-size:26px;font-weight:800;margin:0;letter-spacing:-.02em}
+h2{font-size:15px;font-weight:600;margin:0 0 10px;color:var(--mute)}
+button{font:inherit;color:inherit;cursor:pointer}
+.conn{background:var(--acc);color:var(--acc-ink);border:0;border-radius:999px;padding:10px 18px;font-weight:600}
+.conn.on{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
+section{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:12px}
+.off{opacity:.45;pointer-events:none}
+.bat{display:flex;align-items:center;gap:14px}
+.shell{flex:1;height:44px;border:2.5px solid var(--ink);border-radius:10px;padding:3px;position:relative}
+.shell::after{content:"";position:absolute;right:-9px;top:12px;width:6px;height:14px;background:var(--ink);border-radius:0 3px 3px 0}
+.fill{height:100%;width:0;border-radius:6px;background:var(--ok);transition:width .4s,background .4s}
+.fill.low{background:var(--warn)}.fill.crit{background:var(--bad)}
+.pct{font-size:34px;font-weight:800;min-width:92px;text-align:right}
+.sub{color:var(--mute);font-size:14px;margin-top:8px}
+.seg{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.fx{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.opt{border:1.5px solid var(--line);background:transparent;border-radius:12px;padding:12px 4px;font-weight:600}
+.opt.sel{background:var(--acc);border-color:var(--acc);color:var(--acc-ink)}
+.row{margin-top:14px}
+.row label{display:flex;justify-content:space-between;font-size:15px;margin-bottom:6px}
+.row label b{font-weight:600}
+input[type=range]{width:100%;accent-color:var(--acc);height:28px}
+.tog{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.tog input{width:44px;height:26px;accent-color:var(--acc)}
+.msg{color:var(--mute);font-size:14px;text-align:center;margin:12px 0}
+</style>
+</head>
+<body>
+<main>
+<header><h1>Butterfly</h1><button class="conn" id="btn">Connect</button></header>
+<p class="msg" id="msg">Tap Connect and choose your butterfly.</p>
+
+<div id="panel" class="off">
+<section>
+  <h2>Battery</h2>
+  <div class="bat"><div class="shell"><div class="fill" id="fill"></div></div><div class="pct" id="pct">--%</div></div>
+  <div class="sub" id="bsub">Waiting for data</div>
+</section>
+
+<section>
+  <h2>Wing speed</h2>
+  <div class="seg" id="spd"></div>
+</section>
+
+<section>
+  <h2>Light effect</h2>
+  <div class="fx" id="fx"></div>
+  <div class="row"><label><b>Brightness</b><span id="brv">--</span></label><input type="range" id="br" min="5" max="255"></div>
+  <div class="row tog"><b>Lights on when wings stop</b><input type="checkbox" id="idle"></div>
+</section>
+
+<section>
+  <h2>Wing limits</h2>
+  <div class="row" style="margin-top:0"><label><b>Minimum angle</b><span id="mnv">--</span></label><input type="range" id="mn" min="0" max="170"></div>
+  <div class="row"><label><b>Maximum angle</b><span id="mxv">--</span></label><input type="range" id="mx" min="10" max="180"></div>
+  <div class="sub">Start flapping at speed 1 to see the limits change live. The middle point stays centered between them.</div>
+</section>
+</div>
+</main>
+
+<script>
+const SVC='4fafc201-1fb5-459e-8fcc-c5c9c331914b',
+      CMD='beb5483e-36e1-4688-b7f5-ea07361b26a8',
+      STA='beb5483e-36e1-4688-b7f5-ea07361b26a9';
+const FX=['Off','Rainbow','Breath','Chase','Twinkle','Wing sync','Solid'];
+const SPD=['Stop','Slow','Medium','Fast'];
+const $=id=>document.getElementById(id);
+let dev=null,cmdC=null,queue=Promise.resolve(),st=null,drag=null,tries=0;
+
+function say(t){$('msg').textContent=t}
+function setOn(on){$('panel').classList.toggle('off',!on);$('btn').textContent=on?'Disconnect':'Connect';$('btn').classList.toggle('on',on)}
+
+// buttons
+SPD.forEach((n,i)=>{const b=document.createElement('button');b.className='opt';b.textContent=n;b.onclick=()=>send(1,i);$('spd').append(b)});
+function buildFx(n){$('fx').innerHTML='';for(let i=0;i<n;i++){const b=document.createElement('button');b.className='opt';b.textContent=FX[i]||('Effect '+(i+1));b.onclick=()=>send(2,i);$('fx').append(b)}}
+buildFx(FX.length);
+
+// sliders: send while dragging (throttled), keep the thumb under the finger
+[['br',3],['mn',4],['mx',5]].forEach(([id,cmd])=>{
+  const el=$(id);let t=0;
+  el.addEventListener('pointerdown',()=>drag=id);
+  el.addEventListener('input',()=>{drag=id;label();const n=Date.now();if(n-t>90){t=n;send(cmd,+el.value)}});
+  el.addEventListener('change',()=>{send(cmd,+el.value);drag=null;});
+});
+$('idle').onchange=e=>send(6,e.target.checked?1:0);
+function label(){$('brv').textContent=Math.round($('br').value/2.55)+'%';$('mnv').textContent=$('mn').value+'°';$('mxv').textContent=$('mx').value+'°'}
+
+// BLE
+function send(cmd,val){
+  if(!cmdC)return;
+  const data=new Uint8Array([cmd,val]);
+  queue=queue.then(()=>cmdC.writeValueWithoutResponse?cmdC.writeValueWithoutResponse(data):cmdC.writeValue(data)).catch(e=>console.warn(e));
+}
+async function setup(server){
+  const svc=await server.getPrimaryService(SVC);
+  cmdC=await svc.getCharacteristic(CMD);
+  st=await svc.getCharacteristic(STA);
+  st.addEventListener('characteristicvaluechanged',e=>parse(e.target.value));
+  await st.startNotifications();
+  parse(await st.readValue());
+  setOn(true);say('Connected.');tries=0;
+}
+async function connect(){
+  if(!navigator.bluetooth){say('Web Bluetooth is not available. Open this page in Chrome on Android.');return}
+  try{
+    say('Searching…');
+    dev=await navigator.bluetooth.requestDevice({filters:[{services:[SVC]}]});
+    dev.addEventListener('gattserverdisconnected',onLost);
+    await setup(await dev.gatt.connect());
+  }catch(e){say(e.name==='NotFoundError'?'No device chosen.':'Could not connect: '+e.message);setOn(false)}
+}
+function onLost(){
+  setOn(false);cmdC=null;
+  if(dev&&dev.userStop){dev.userStop=false;say('Disconnected.');return}
+  if(tries++<3){say('Connection lost. Reconnecting…');setTimeout(async()=>{try{await setup(await dev.gatt.connect())}catch(e){onLost()}},1500)}
+  else say('Connection lost. Tap Connect.');
+}
+$('btn').onclick=()=>{
+  if(dev&&dev.gatt.connected){dev.userStop=true;dev.gatt.disconnect()}else connect();
+};
+
+// status packet (11 bytes)
+function parse(v){
+  const speed=v.getUint8(0),fx=v.getUint8(1),br=v.getUint8(2),mn=v.getUint8(3),mx=v.getUint8(4),
+        idle=v.getUint8(5),flag=v.getUint8(6),mv=v.getUint16(7),pct=v.getUint8(9),nfx=v.getUint8(10);
+  if($('fx').children.length!==nfx&&nfx>0)buildFx(nfx);
+  [...$('spd').children].forEach((b,i)=>b.classList.toggle('sel',i===speed));
+  [...$('fx').children].forEach((b,i)=>b.classList.toggle('sel',i===fx));
+  const set=(id,val)=>{if(drag!==id)$(id).value=val};
+  set('br',br);set('mn',mn);set('mx',mx);
+  $('idle').checked=!!idle;label();
+  $('pct').textContent=pct+'%';
+  $('fill').style.width=Math.max(pct,3)+'%';
+  $('fill').className='fill'+(flag===2?' crit':flag===1?' low':'');
+  $('bsub').textContent=(mv/1000).toFixed(2)+' V · '+(flag===2?'Critical: wings and lights are off':flag===1?'Low: brightness reduced':'Battery is fine');
+}
+</script>
+</body>
+</html>
