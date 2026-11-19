@@ -72,6 +72,12 @@ input[type=range]{width:100%;accent-color:var(--acc);height:28px}
   <div class="row"><label><b>Maximum angle</b><span id="mxv">--</span></label><input type="range" id="mx" min="10" max="180"></div>
   <div class="sub">Start flapping at speed 1 to see the limits change live. The middle point stays centered between them.</div>
 </section>
+
+<section id="rsec">
+  <h2>Wing stop position</h2>
+  <div class="row" style="margin-top:0"><label><b>Position when stopped</b><span id="rsv">--</span></label><input type="range" id="rs" min="0" max="180"></div>
+  <div class="sub" id="rsub">Move the wings slowly to where you want them to rest. It stays between the wing limits.</div>
+</section>
 </div>
 </main>
 
@@ -93,14 +99,14 @@ function buildFx(n){$('fx').innerHTML='';for(let i=0;i<n;i++){const b=document.c
 buildFx(FX.length);
 
 // sliders: send while dragging (throttled), keep the thumb under the finger
-[['br',3],['mn',4],['mx',5]].forEach(([id,cmd])=>{
+[['br',3],['mn',4],['mx',5],['rs',8]].forEach(([id,cmd])=>{
   const el=$(id);let t=0;
   el.addEventListener('pointerdown',()=>drag=id);
   el.addEventListener('input',()=>{drag=id;label();const n=Date.now();if(n-t>90){t=n;send(cmd,+el.value)}});
   el.addEventListener('change',()=>{send(cmd,+el.value);drag=null;});
 });
 $('idle').onchange=e=>send(6,e.target.checked?1:0);
-function label(){$('brv').textContent=Math.round($('br').value/2.55)+'%';$('mnv').textContent=$('mn').value+'°';$('mxv').textContent=$('mx').value+'°'}
+function label(){$('brv').textContent=Math.round($('br').value/2.55)+'%';$('mnv').textContent=$('mn').value+'°';$('mxv').textContent=$('mx').value+'°';$('rsv').textContent=$('rs').value+'°'}
 
 // BLE
 function send(cmd,val){
@@ -139,12 +145,15 @@ $('btn').onclick=()=>{
 // status packet (11 bytes)
 function parse(v){
   const speed=v.getUint8(0),fx=v.getUint8(1),br=v.getUint8(2),mn=v.getUint8(3),mx=v.getUint8(4),
-        idle=v.getUint8(5),flag=v.getUint8(6),mv=v.getUint16(7),pct=v.getUint8(9),nfx=v.getUint8(10);
+        idle=v.getUint8(5),flag=v.getUint8(6),mv=v.getUint16(7),pct=v.getUint8(9),nfx=v.getUint8(10),rest=v.getUint8(11);
   if($('fx').children.length!==nfx&&nfx>0)buildFx(nfx);
   [...$('spd').children].forEach((b,i)=>b.classList.toggle('sel',i===speed));
   [...$('fx').children].forEach((b,i)=>b.classList.toggle('sel',i===fx));
   const set=(id,val)=>{if(drag!==id)$(id).value=val};
   set('br',br);set('mn',mn);set('mx',mx);
+  $('rs').min=mn;$('rs').max=mx;set('rs',rest);
+  $('rs').disabled=speed>0;$('rsec').classList.toggle('off',speed>0);
+  $('rsub').textContent=speed>0?'Stop the wings to change the stop position.':'Move the wings slowly to where you want them to rest. It stays between the wing limits.';
   $('idle').checked=!!idle;label();
   $('pct').textContent=pct+'%';
   $('fill').style.width=Math.max(pct,3)+'%';
