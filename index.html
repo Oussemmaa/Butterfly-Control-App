@@ -75,8 +75,8 @@ input[type=range]{width:100%;accent-color:var(--acc);height:28px}
 
 <section id="rsec">
   <h2>Wing stop position</h2>
-  <div class="row" style="margin-top:0"><label><b>Position when stopped</b><span id="rsv">--</span></label><input type="range" id="rs" min="0" max="180"></div>
-  <div class="sub" id="rsub">Move the wings slowly to where you want them to rest. It stays between the wing limits.</div>
+  <div class="row" style="margin-top:0"><label><b>Wing position</b><span id="rsv">--</span></label><input type="range" id="rs" min="0" max="180"></div>
+  <div class="sub" id="rsub">Move the slider to set where the wings rest. It stays between the wing limits.</div>
 </section>
 </div>
 </main>
@@ -103,9 +103,10 @@ buildFx(FX.length);
   const el=$(id);let t=0;
   el.addEventListener('pointerdown',()=>drag=id);
   el.addEventListener('input',()=>{drag=id;label();const n=Date.now();if(n-t>90){t=n;send(cmd,+el.value)}});
-  el.addEventListener('change',()=>{send(cmd,+el.value);drag=null;});
+  el.addEventListener('change',()=>{send(cmd,+el.value);setTimeout(()=>{drag=null},600);});
 });
 $('idle').onchange=e=>send(6,e.target.checked?1:0);
+['pointerup','pointercancel'].forEach(t=>window.addEventListener(t,()=>setTimeout(()=>{drag=null},600)));
 function label(){$('brv').textContent=Math.round($('br').value/2.55)+'%';$('mnv').textContent=$('mn').value+'°';$('mxv').textContent=$('mx').value+'°';$('rsv').textContent=$('rs').value+'°'}
 
 // BLE
@@ -153,7 +154,7 @@ function parse(v){
   set('br',br);set('mn',mn);set('mx',mx);
   $('rs').min=mn;$('rs').max=mx;set('rs',rest);
   $('rs').disabled=speed>0;$('rsec').classList.toggle('off',speed>0);
-  $('rsub').textContent=speed>0?'Stop the wings to change the stop position.':'Move the wings slowly to where you want them to rest. It stays between the wing limits.';
+  $('rsub').textContent=speed>0?'Showing the live wing position. Stop the wings to set it.':'Move the slider to set where the wings rest. It stays between the wing limits.';
   $('idle').checked=!!idle;label();
   $('pct').textContent=pct+'%';
   $('fill').style.width=Math.max(pct,3)+'%';
